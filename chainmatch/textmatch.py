@@ -70,16 +70,24 @@ def _pattern() -> re.Pattern[str]:
     return re.compile("|".join(parts))
 
 
-def _score_for(alias: str, whole_input: bool, ids: tuple[str, ...]) -> float:
+def _score_for(alias: str, whole_input: bool, normalized: str) -> float:
     if alias in _ambiguous():
         return 0.5
     if whole_input:
-        return 0.97
+        return 0.97         # 用户就输入了这一个词，那它就是链名
+    if alias in chains.COMMON_WORD_ALIASES and not _has_chain_context(normalized):
+        # "scroll down to see more" 里的 scroll 不是 Scroll 链
+        return 0.45
     if len(alias) <= 3:
-        return 0.6          # eth / btc / op 这类短词，单独出现时降权
+        return 0.6          # eth / btc / op 这类短词，夹在文本里时降权
     if len(alias) <= 5:
         return 0.85
     return 0.9
+
+
+def _has_chain_context(normalized: str) -> bool:
+    """这段文本是不是在讲转账 / 网络。"""
+    return any(hint in normalized for hint in chains.CHAIN_CONTEXT_HINTS)
 
 
 def match_text(text: str) -> list[Signal]:
@@ -103,16 +111,21 @@ def match_text(text: str) -> list[Signal]:
             continue
         seen.add(alias)
         whole = normalized == alias
-        confidence = _score_for(alias, whole, ids)
+        confidence = _score_for(alias, whole, normalized)
+        weak_word = confidence <= 0.45 and alias in chains.COMMON_WORD_ALIASES
         if len(ids) > 1:
             warning = f"“{alias}”可能指 {len(ids)} 条不同的链，必须人工确认"
             detail = f"名称“{alias}”含义不唯一"
             confidence = min(confidence, 0.5)
+        elif weak_word:
+            warning = f"“{alias}”既是链名也是普通英文词，这里更像是普通用词，仅作参考"
+            detail = f"文中出现了“{alias}”，可能指 {chains.label(ids[0])}"
         else:
             warning = ""
             detail = f"名称/标准“{alias}” → {chains.label(ids[0])}"
         signals.append(Signal(
-            kind="standard" if re.search(r"\d", alias) else "alias",
+            kind="weak-alias" if weak_word else
+                 ("standard" if re.search(r"\d", alias) else "alias"),
             detail=detail,
             chains=ids,
             confidence=confidence,

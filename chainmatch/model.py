@@ -43,6 +43,7 @@ class Resolution:
     warnings: list[str] = field(default_factory=list)
     extracted_text: str = ""        # 图片 OCR / 二维码解出来的内容
     addresses: list[str] = field(default_factory=list)  # 输入里出现的地址
+    conflicts: tuple[str, ...] = ()  # 互相矛盾的强证据，已是人话描述
 
     @property
     def confidence(self) -> float:
@@ -57,8 +58,12 @@ class Resolution:
 
     @property
     def certain(self) -> bool:
-        """是否唯一确定了一条链。"""
-        return len(self.candidates) == 1 and self.confidence >= 0.7
+        """是否唯一确定了一条链。
+
+        输入里存在互相矛盾的强证据时（例如一张截图上同时有 ERC20 和 TRC20 的
+        地址），无论分数多高都不算确定——分数高低不能替用户决定他要用哪一条。
+        """
+        return len(self.candidates) == 1 and self.confidence >= 0.7 and not self.conflicts
 
     @property
     def resolved(self) -> bool:
@@ -72,6 +77,9 @@ class Resolution:
         """一句话描述识别到的链。"""
         if not self.candidates:
             return "无法识别"
+        if self.conflicts:
+            shown = " / ".join(self.conflicts[:4])
+            return f"同时出现了多条链的信息（{shown}），需要你指明用哪一条"
         if len(self.candidates) == 1:
             return chains.label(self.candidates[0])
 

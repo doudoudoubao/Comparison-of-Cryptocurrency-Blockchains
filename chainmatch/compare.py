@@ -48,8 +48,18 @@ class Comparison:
 
     @property
     def is_safe(self) -> bool:
-        """只有明确同链、且没有校验和级别的告警时才算"可以转"。"""
-        return self.verdict == SAME and not any("校验" in r for r in self.risks)
+        """只有"明确同链 + 证据够硬 + 没有校验级告警"才算可以转。
+
+        这个属性是给脚本用的闸门，宁可偏保守：识别本身不够确信（例如靠模糊
+        匹配猜出来的链名），就不该给绿灯。
+        """
+        return (
+            self.verdict == SAME
+            and self.confidence >= 0.8
+            and not self.a.conflicts
+            and not self.b.conflicts
+            and not any("校验" in r or "私钥" in r for r in self.risks)
+        )
 
 
 def compare(a: Resolution, b: Resolution) -> Comparison:
@@ -133,10 +143,18 @@ def _risks(result: Comparison) -> list[str]:
     risks: list[str] = []
     a, b = result.a, result.b
 
-    # 地址校验和之类的问题优先级最高
+    # 输入本身就自相矛盾时，这是最该先说的事——比两边比不比得上更重要
+    for side, res in (("A", a), ("B", b)):
+        if res.conflicts:
+            risks.append(
+                f"输入 {side} 里同时出现了 {' / '.join(res.conflicts)} 的信息，"
+                "下面的结论只是就其中一种可能而言，请先把输入缩小到你真正要用的那条链"
+            )
+
+    # 地址校验、私钥、测试网、模糊猜测这几类问题优先级最高
     for side, res in (("A", a), ("B", b)):
         for warning in res.warnings:
-            if "校验" in warning or "篡改" in warning or "测试网" in warning:
+            if any(key in warning for key in ("校验", "篡改", "测试网", "私钥", "模糊猜测")):
                 risks.append(f"输入 {side}：{warning}")
 
     if result.verdict == DIFFERENT:

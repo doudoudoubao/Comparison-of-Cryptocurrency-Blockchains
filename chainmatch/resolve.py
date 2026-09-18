@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 
 from . import address, chains, image, textmatch, uri
-from .model import Resolution, Signal
+from .model import FAMILY_NAMES, Resolution, Signal
 
 # 候选保留阈值：分数达到最高分的这个比例才算并列候选
 _RELATIVE_KEEP = 0.93
@@ -18,6 +18,10 @@ _ABSOLUTE_FLOOR = 0.35
 
 # 展示顺序：知识库里声明得越早越主流
 _CHAIN_ORDER = {chain.id: i for i, chain in enumerate(chains.CHAINS)}
+
+# 参与"矛盾证据"判定的最低置信度：模糊匹配、短别名、校验失败的证据都够不着，
+# 免得它们制造假冲突
+_CONFLICT_MIN_CONFIDENCE = 0.75
 
 
 def resolve(value: str, label: str | None = None) -> Resolution:
@@ -223,6 +227,22 @@ def _finalize(result: Resolution) -> None:
         keep.sort(key=lambda c: (-result.scores[c], _CHAIN_ORDER.get(c, 9999)))
         result.candidates = tuple(keep)
 
+    if _looks_like_mnemonic(result.extracted_text or result.raw):
+        result.warnings.insert(0, (
+            "⚠️ 这看起来像钱包助记词（12/24 个英文单词）。助记词等于你的全部资产，"
+            "任何人拿到都能转走——不要截图、不要上传、不要发给任何人，"
+            "包括自称客服或工作人员的人。核对收款网络也用不到它"
+        ))
+
+    result.conflicts = _detect_conflicts(result)
+    if result.conflicts:
+        shown = " / ".join(result.conflicts)
+        result.warnings.insert(0, (
+            f"这个输入里同时出现了指向不同链的信息：{shown}。"
+            "常见于交易所提币页（页面上列着多个可选网络）或同时贴了多条链的地址——"
+            "请只保留你真正要用的那一条再比一次"
+        ))
+
     if len(result.candidates) > 1:
         result.family_hint = _family_hint(result)
 
@@ -237,6 +257,55 @@ def _finalize(result: Resolution) -> None:
 
     if not result.candidates and not result.warnings:
         result.warnings.append("没有识别到任何链信息：请提供网络名（如 TRC20）、收款地址或钱包二维码")
+
+
+def _looks_like_mnemonic(text: str) -> bool:
+    """粗判一段文本是不是 BIP-39 助记词。
+
+    判据取得比较严：词数必须是 12/15/18/21/24，且每个词都是 3~8 个小写字母、
+    不含数字和标点。普通英文句子几乎总会出现 "to" "my" "a" 这类短词或大写、
+    标点，所以不会被误伤。宁可漏判，也不要对正常输入天天喊狼来了。
+    """
+    if not text or any(ch.isdigit() or ch.isupper() for ch in text):
+        return False
+    words = text.split()
+    if len(words) not in (12, 15, 18, 21, 24):
+        return False
+    return all(w.isascii() and w.isalpha() and 3 <= len(w) <= 8 for w in words)
+
+
+def _detect_conflicts(result: Resolution) -> tuple[str, ...]:
+    """找出输入里互相矛盾的强证据。
+
+    判据很简单：两条都足够可信的证据，指向的链集合毫不相交。例如一张截图里
+    既有 `0x…` 地址（指向全部 EVM 链）又有 `T…` 地址（只指向波场），或者文字里
+    同时写着 ERC20 和 TRC20。
+
+    这种情况不能靠分数高低分胜负——分数只差 0.01 就替用户选一条链，是这个工具
+    最不该做的事。检测到就如实说"这里有多条链"，让用户自己缩小范围。
+    """
+    strong = [s for s in result.signals if s.confidence >= _CONFLICT_MIN_CONFIDENCE and s.chains]
+    involved: list[str] = []
+    for i, left in enumerate(strong):
+        for right in strong[i + 1:]:
+            if set(left.chains) & set(right.chains):
+                continue
+            # 按"证据"而不是"链"来表述：一个 0x 地址牵扯 41 条 EVM 链，
+            # 全列出来只会淹没"这里还有一个波场地址"这个重点
+            for signal in (left, right):
+                label = _signal_label(signal)
+                if label not in involved:
+                    involved.append(label)
+    return tuple(involved[:6])
+
+
+def _signal_label(signal: Signal) -> str:
+    """给一条证据起个人话名字，用于冲突提示。"""
+    if signal.family and len(signal.chains) > 3:
+        return FAMILY_NAMES.get(signal.family, signal.family)
+    if len(signal.chains) == 1:
+        return chains.label(signal.chains[0])
+    return "、".join(chains.label(c) for c in signal.chains[:3])
 
 
 def _family_hint(result: Resolution) -> str | None:

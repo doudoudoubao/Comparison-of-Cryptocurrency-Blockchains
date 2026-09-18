@@ -39,7 +39,7 @@ _SCHEME_MAP: dict[str, str] = {
 _URI_RE = re.compile(
     r"^(?P<scheme>[a-z0-9+.\-]{2,20}):(?://)?(?:pay-|transfer/)?"
     r"(?P<target>[^@/?#]*)"
-    r"(?:@(?P<chainid>0x[0-9a-fA-F]+|[0-9]+))?",
+    r"(?:@(?P<chainid>0[xX][0-9a-fA-F]+|[0-9]+))?",
     re.IGNORECASE,
 )
 

@@ -97,7 +97,7 @@ CHAINS: tuple[Chain, ...] = (
        standards=("BEP-2",), addr_kinds=("bnb-beacon",), bech32_hrp=("bnb",),
        note="老的币安链（BEP2），地址以 bnb1 开头，已停止出块，切勿与 BSC 混淆"),
     _c("polygon", "Polygon PoS", "Polygon", "POL", "evm",
-       "matic|pol|polygon|polygon pos|matic network|polygon network|polygon主网|马蹄链|馬蹄鏈",
+       "matic|pol|polygon|polygon pos|matic network|polygon network|polygon主网|马蹄链|馬蹄鏈|polygonpos|polygon matic",
        standards=("ERC-20",), evm_chain_id=137, addr_kinds=("evm",),
        note="原生代币已由 MATIC 更名为 POL"),
     _c("polygon-zkevm", "Polygon zkEVM", "Polygon zkEVM", "ETH", "evm",
@@ -106,7 +106,7 @@ CHAINS: tuple[Chain, ...] = (
        "arb|arbitrum|arbitrum one|arbitrum主网|arb one|arbitrum network|arbitrum-one",
        evm_chain_id=42161, addr_kinds=("evm",)),
     _c("arbitrum-nova", "Arbitrum Nova", "Arbitrum Nova", "ETH", "evm",
-       "arbitrum nova|arb nova", evm_chain_id=42170, addr_kinds=("evm",)),
+       "arbitrum nova|arb nova|arbnova", evm_chain_id=42170, addr_kinds=("evm",)),
     _c("optimism", "OP Mainnet", "Optimism", "ETH", "evm",
        "op|optimism|op mainnet|optimism主网|op主网|optimistic ethereum|optimism network",
        evm_chain_id=10, addr_kinds=("evm",)),
@@ -115,7 +115,7 @@ CHAINS: tuple[Chain, ...] = (
        evm_chain_id=8453, addr_kinds=("evm",)),
     _c("avalanche-c", "Avalanche C-Chain", "雪崩 C 链", "AVAX", "evm",
        "avax|avaxc|avax-c|avalanche|avalanche c|avalanche c-chain|c-chain|雪崩|雪崩链|"
-       "avalanche cchain|avax c chain|avaxcchain",
+       "avalanche cchain|avax c chain|avaxcchain|avaxccchain|avalanche c chain",
        evm_chain_id=43114, addr_kinds=("evm",),
        note="仅 C 链兼容 EVM；X 链 / P 链地址以 X- / P- 开头，互不相同"),
     _c("cronos", "Cronos", "Cronos", "CRO", "evm",
@@ -125,7 +125,7 @@ CHAINS: tuple[Chain, ...] = (
        evm_chain_id=146, addr_kinds=("evm",),
        note="Fantom Opera 已升级更名为 Sonic（旧 chainId 250，新链 146）"),
     _c("zksync-era", "zkSync Era", "zkSync Era", "ETH", "evm",
-       "zksync|zksync era|zks|zksync2|zksync-era", evm_chain_id=324, addr_kinds=("evm",)),
+       "zksync|zksync era|zks|zksync2|zksync-era|zksyncera|zke", evm_chain_id=324, addr_kinds=("evm",)),
     _c("linea", "Linea", "Linea", "ETH", "evm",
        "linea|linea mainnet", evm_chain_id=59144, addr_kinds=("evm",)),
     _c("scroll", "Scroll", "Scroll", "ETH", "evm",
@@ -160,7 +160,7 @@ CHAINS: tuple[Chain, ...] = (
     _c("xlayer", "X Layer", "X Layer", "OKB", "evm",
        "xlayer|x layer|x-layer|okb chain", evm_chain_id=196, addr_kinds=("evm",)),
     _c("core", "Core", "Core 链", "CORE", "evm",
-       "core chain|coredao|core dao|core blockchain", evm_chain_id=1116, addr_kinds=("evm",)),
+       "core|core chain|coredao|core dao|core blockchain|core dao chain", evm_chain_id=1116, addr_kinds=("evm",)),
     _c("berachain", "Berachain", "Berachain", "BERA", "evm",
        "bera|berachain", evm_chain_id=80094, addr_kinds=("evm",)),
     _c("ethereum-classic", "Ethereum Classic", "以太坊经典", "ETC", "evm",
@@ -291,6 +291,22 @@ AMBIGUOUS_TERMS: dict[str, tuple[str, ...]] = {
     "l2": ("arbitrum", "optimism", "base", "zksync-era", "linea", "scroll"),
     "二层": ("arbitrum", "optimism", "base", "zksync-era", "linea", "scroll"),
 }
+
+# 这些链名本身就是常用英文词。单独输入时当然是链名（用户输入 "Base" 就是指 Base），
+# 但夹在一整句话里时（"scroll down to see more"、"cash flow statement"）几乎都不是，
+# 所以在没有网络相关上下文的长文本里要大幅降权，否则 OCR 一张截图就会误判。
+COMMON_WORD_ALIASES: frozenset[str] = frozenset({
+    "base", "core", "flow", "scroll", "blast", "dash", "waves", "wave", "one", "op",
+    "near", "ton", "sonic", "mantle", "terra", "aurora", "manta", "neo", "sui", "sei",
+    "metis", "kava", "celo", "linea", "arb", "s", "rune", "iron", "sky",
+})
+
+# 出现这些词说明上下文确实在讲转账网络，此时常用词别名不必降权
+CHAIN_CONTEXT_HINTS: tuple[str, ...] = (
+    "网络", "链", "主网", "协议", "提币", "充值", "转账", "地址", "钱包", "收款",
+    "network", "chain", "mainnet", "address", "wallet", "withdraw", "deposit",
+    "transfer", "erc", "trc", "bep", "token", "layer",
+)
 
 # 只是代币、不指向任何链的词：出现它们时要提醒用户"这不是链名"
 TOKEN_ONLY_TERMS: frozenset[str] = frozenset({

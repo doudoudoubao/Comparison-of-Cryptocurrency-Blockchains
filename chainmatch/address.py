@@ -49,7 +49,8 @@ _B58_BODY = r"[1-9A-HJ-NP-Za-km-z]"
 # --------------------------------------------------------------------------
 
 def _rule_evm(text: str) -> AddressHit | None:
-    if not re.fullmatch(r"0x[0-9a-fA-F]{40}", text):
+    # 前缀必须容忍 0X：全大写地址是合法写法，OCR 也经常把整行输出成大写
+    if not re.fullmatch(r"0[xX][0-9a-fA-F]{40}", text):
         return None
     candidates = chains.by_addr_kind("evm")
     checksum = eip55_is_valid(text)
@@ -272,22 +273,32 @@ def _rule_ss58(text: str) -> AddressHit | None:
 
 
 def _rule_hex64(text: str) -> AddressHit | None:
-    if not re.fullmatch(r"0x[0-9a-fA-F]{64}", text):
+    """0x + 64 位十六进制。
+
+    这个形态最常见的其实**不是**收款地址，而是交易哈希；也可能是私钥。
+    所以置信度压低、警告写在最前面，避免把一个交易哈希当成 Aptos 地址去比。
+    """
+    if not re.fullmatch(r"0[xX][0-9a-fA-F]{64}", text):
         return None
     return AddressHit(
-        kind="hex64", chains=("aptos", "sui", "starknet"), confidence=0.55, family="move",
-        detail="0x 开头的 64 位地址",
-        warning="Aptos / Sui / Starknet 的地址格式相同，光看地址无法区分，必须靠网络名",
+        kind="hex64", chains=("aptos", "sui", "starknet"), confidence=0.45, family="move",
+        detail="0x 开头的 64 位十六进制",
+        warning="这串东西更可能是交易哈希或私钥，而不是收款地址；"
+                "只有确认它是从钱包的“收款地址”处复制的，才能按 Aptos / Sui / Starknet 理解"
+                "（这三条链地址格式相同，仍需靠网络名区分）",
     )
 
 
 def _rule_bare_hex64(text: str) -> AddressHit | None:
-    if not re.fullmatch(r"[0-9a-f]{64}", text):
+    """不带 0x 的 64 位十六进制——私钥最典型的样子，必须优先按私钥警告。"""
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", text):
         return None
     return AddressHit(
         kind="bare-hex64", chains=("near", "icp"), confidence=0.4,
         detail="64 位十六进制字符串",
-        warning="可能是 NEAR 隐式账户或 ICP 账户 ID，必须靠网络名确认",
+        warning="⚠️ 私钥就是这个样子！如果这是你的私钥，请立刻停止分享——任何人拿到都能转走"
+                "你的全部资产。确认是收款地址的话，它可能是 NEAR 隐式账户或 ICP 账户 ID，"
+                "需要靠网络名确认",
     )
 
 
@@ -369,7 +380,7 @@ def _rule_waves(text: str) -> AddressHit | None:
 
 
 def _rule_flow(text: str) -> AddressHit | None:
-    if not re.fullmatch(r"0x[0-9a-fA-F]{16}", text):
+    if not re.fullmatch(r"0[xX][0-9a-fA-F]{16}", text):
         return None
     return AddressHit(kind="flow", chains=("flow",), confidence=0.85,
                       detail="Flow 地址")
@@ -428,9 +439,12 @@ def identify(text: str) -> list[AddressHit]:
     return hits
 
 
+# 拼接尝试的次数上限，避免超长 OCR 文本把时间耗在组合上
+_REJOIN_MAX_ATTEMPTS = 400
+
 _ADDR_SCAN = re.compile(
     r"(?<![0-9A-Za-z])("
-    r"0x[0-9a-fA-F]{40,64}"
+    r"0[xX][0-9a-fA-F]{40,64}"
     r"|bitcoincash:[qp][a-z0-9]{41}"
     r"|kaspa:[a-z0-9]{59,70}"
     r"|[a-z]{2,12}1[02-9ac-hj-np-z]{10,100}"
@@ -443,6 +457,49 @@ _ADDR_SCAN = re.compile(
 
 def scan(text: str) -> list[tuple[str, list[AddressHit]]]:
     """从一段文本（例如 OCR 结果）里找出所有地址。"""
+    found = _scan_once(text)
+    if not any(hit.confidence >= 0.8 for _, hits in found for hit in hits):
+        found.extend(_scan_rejoined(text))
+    return found
+
+
+def _scan_rejoined(text: str) -> list[tuple[str, list[AddressHit]]]:
+    """把被空白断开的片段拼回去再试一次。
+
+    OCR 经常把一个地址断成 "TR7NHqjeKQxGT Ci8q8ZY4pL8ot SzgjLj6t"。只有拼接
+    结果**通过校验和**才采信——随便拼出一个校验和正确的地址，概率约 2⁻³²，
+    所以这里不会凭空造出一个不存在的地址。
+    """
+    tokens = [t for t in re.findall(r"[0-9A-Za-z]+", text) if len(t) >= 3]
+    found: list[tuple[str, list[AddressHit]]] = []
+    seen: set[str] = set()
+    attempts = 0
+    for start in range(len(tokens)):
+        for end in range(start + 2, min(start + 5, len(tokens) + 1)):
+            if attempts >= _REJOIN_MAX_ATTEMPTS:
+                return found
+            candidate = "".join(tokens[start:end])
+            if not 25 <= len(candidate) <= 110 or candidate in seen:
+                continue
+            seen.add(candidate)
+            attempts += 1
+            # 只接受真正验过校验和的结果。像全小写的 EVM 地址、Solana 地址
+            # 本身不带校验和，拼错了也看不出来——那种情况宁可不认，也不能
+            # 凭空造出一个"看起来没问题"的地址。
+            strong = [
+                h for h in identify(candidate)
+                if h.chains and h.confidence >= 0.85 and "校验通过" in h.detail
+            ]
+            if strong:
+                for hit in strong:
+                    hit.detail += "（由被空格断开的片段拼回）"
+                    hit.warning = (hit.warning + "；" if hit.warning else "") + \
+                        "这个地址是把图中断行的片段拼起来得到的，务必与原图逐字核对"
+                found.append((candidate, strong))
+    return found
+
+
+def _scan_once(text: str) -> list[tuple[str, list[AddressHit]]]:
     found: list[tuple[str, list[AddressHit]]] = []
     seen: set[str] = set()
     for match in _ADDR_SCAN.finditer(text):

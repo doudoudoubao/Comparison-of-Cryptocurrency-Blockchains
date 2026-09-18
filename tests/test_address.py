@@ -135,7 +135,24 @@ class TestOtherChains(unittest.TestCase):
         hit = top_hit("0x" + "ab" * 32)
         self.assertIn("aptos", hit.chains)
         self.assertIn("sui", hit.chains)
-        self.assertIn("无法区分", hit.warning)
+        self.assertIn("网络名", hit.warning)
+
+    def test_hex64_warns_it_is_probably_a_tx_hash(self):
+        """0x+64hex 最常见的其实是交易哈希，不能默默当成 Aptos 地址。"""
+        hit = top_hit("0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060")
+        self.assertIn("交易哈希", hit.warning)
+        self.assertLess(hit.confidence, 0.5)
+
+    def test_bare_hex64_warns_about_private_keys(self):
+        """不带 0x 的 64 位十六进制正是私钥的样子，必须先警告私钥。"""
+        hit = top_hit("4c0883a69102937d6231471b5dbb6204fe512961708279f2f3f0e1c0cbb2a2d1")
+        self.assertIn("私钥", hit.warning)
+
+    def test_uppercase_evm_address(self):
+        """全大写是合法写法，OCR 也常这么输出。"""
+        hit = top_hit("0XDAC17F958D2EE523A2206206994597C13D831EC7")
+        self.assertEqual(hit.kind, "evm")
+        self.assertGreater(hit.confidence, 0.8)
 
     def test_near_named_account(self):
         self.assertEqual(chains_of("alice.near"), ("near",))

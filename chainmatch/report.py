@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 import unicodedata
 
@@ -126,7 +127,10 @@ def _render_input(tag: str, res: Resolution, paint: Painter, verbose: bool,
     if res.resolved:
         conf = f"{res.confidence:.0%}"
         color = "green" if res.certain else "yellow"
-        lines.append(f"    → {paint(res.describe(), color)}   {paint('置信度 ' + conf, 'grey')}")
+        described = _wrap(res.describe(), WIDTH - 20)
+        lines.append(f"    → {paint(described[0], color)}   {paint('置信度 ' + conf, 'grey')}")
+        for extra in described[1:]:
+            lines.append(f"      {paint(extra, color)}")
     else:
         lines.append(f"    → {paint('未能识别出链', 'red')}")
 
@@ -148,21 +152,25 @@ def _render_input(tag: str, res: Resolution, paint: Painter, verbose: bool,
     return lines
 
 
-def _bullet(text: str, paint: Painter, color: str | None) -> list[str]:
-    limit = WIDTH - 6
-    words = text
-    chunks: list[str] = []
+def _wrap(text: str, limit: int) -> list[str]:
+    """按显示宽度折行，中文逐字断、英文单词和地址整体不拆。"""
+    pieces = re.findall(r"[A-Za-z0-9][A-Za-z0-9@._:/+-]*|\s+|.", text)
+    lines: list[str] = []
     current = ""
-    for ch in words:
-        if _display_width(current + ch) > limit:
-            chunks.append(current)
-            current = ch
+    for piece in pieces:
+        if _display_width(current) + _display_width(piece) > limit and current.strip():
+            lines.append(current.rstrip())
+            current = "" if piece.isspace() else piece
         else:
-            current += ch
-    if current:
-        chunks.append(current)
+            current += piece
+    if current.strip():
+        lines.append(current.rstrip())
+    return lines or [""]
+
+
+def _bullet(text: str, paint: Painter, color: str | None) -> list[str]:
     out = []
-    for i, chunk in enumerate(chunks):
+    for i, chunk in enumerate(_wrap(text, WIDTH - 6)):
         marker = "   · " if i == 0 else "     "
         out.append(paint(marker + chunk, color) if color else marker + chunk)
     return out
@@ -211,6 +219,7 @@ def resolution_to_dict(res: Resolution) -> dict:
         "certain": res.certain,
         "confidence": round(res.confidence, 4),
         "family_hint": res.family_hint,
+        "conflicts": list(res.conflicts),
         "candidates": [
             {"id": c, "label": chains.label(c), "score": res.scores.get(c, 0.0)}
             for c in res.candidates
