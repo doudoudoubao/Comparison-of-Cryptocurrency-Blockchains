@@ -1,0 +1,19 @@
+# 核心功能（链名对比、地址识别、二维码 URI 解析）不需要任何第三方库。
+# 只有"从图片里读内容"这部分需要下面这些，按需安装。
+
+# 文字识别（OCR）——读取钱包/交易所截图里的网络名和地址
+pillow>=10.0.0
+pytesseract>=0.3.10
+
+# 二维码识别——读取收款码
+pyzbar>=0.1.9
+# pyzbar 的替代方案，如果 libzbar 装不上就用它：
+# opencv-python-headless>=4.8.0
+
+# 注意：pytesseract 只是 tesseract 引擎的 Python 封装，引擎要单独装：
+#   Ubuntu/Debian  sudo apt install tesseract-ocr tesseract-ocr-chi-sim
+#   macOS          brew install tesseract tesseract-lang
+#   Windows        https://github.com/UB-Mannheim/tesseract/wiki
+#
+# pyzbar 在 Linux 上还需要：
+#   sudo apt install libzbar0
