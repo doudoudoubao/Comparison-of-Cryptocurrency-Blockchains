@@ -456,11 +456,25 @@ _ADDR_SCAN = re.compile(
 
 
 def scan(text: str) -> list[tuple[str, list[AddressHit]]]:
-    """从一段文本（例如 OCR 结果）里找出所有地址。"""
+    """从一段文本（例如 OCR 结果）里找出所有地址。
+
+    三步走，一步比一步保守：
+      1. 直接扫描
+      2. 找不到就把被空白断开的片段拼回去试（只认校验和通过的）
+      3. 还找不到，就退一步报告"这里像有个地址但读不准"，而不是装作没看见
+    """
     found = _scan_once(text)
-    if not any(hit.confidence >= 0.8 for _, hits in found for hit in hits):
-        found.extend(_scan_rejoined(text))
+    if _has_solid(found):
+        return found
+    found.extend(_scan_rejoined(text))
+    if _has_solid(found):
+        return found
+    found.extend(_scan_shapes(text))
     return found
+
+
+def _has_solid(found) -> bool:
+    return any(hit.confidence >= 0.8 for _, hits in found for hit in hits)
 
 
 def _scan_rejoined(text: str) -> list[tuple[str, list[AddressHit]]]:
@@ -497,6 +511,51 @@ def _scan_rejoined(text: str) -> list[tuple[str, list[AddressHit]]]:
                         "这个地址是把图中断行的片段拼起来得到的，务必与原图逐字核对"
                 found.append((candidate, strong))
     return found
+
+
+# 只看长度和前缀的"形状"，不管字符集。OCR 认错的字符常常根本不在 Base58
+# 字母表里（Q→O、l→1），那样连格式匹配都不成立，只能靠形状把它捞出来。
+_ADDRESS_SHAPES = tuple(re.compile(p) for p in (
+    r"T[0-9A-Za-z]{33}",                        # 波场
+    r"0[xX][0-9A-Za-z]{40}",                    # 以太坊系
+    r"0[xX][0-9A-Za-z]{64}",                    # Aptos / Sui / 交易哈希
+    r"(?:bc1|ltc1|tb1)[0-9A-Za-z]{25,71}",      # 比特币系 bech32
+    r"[DLMX][0-9A-Za-z]{32,33}",                # 狗狗币 / 莱特币 / 达世币
+    r"[EU]Q[0-9A-Za-z_+/-]{46}",                # TON
+    r"[a-z]{3,10}1[0-9A-Za-z]{38,58}",          # Cosmos 系
+))
+
+
+def _is_near_miss(candidate: str) -> bool:
+    """长得像地址，但没有任何一条规则能确认它。"""
+    if any(hit.confidence >= 0.85 for hit in identify(candidate)):
+        return False
+    return any(shape.fullmatch(candidate) for shape in _ADDRESS_SHAPES)
+
+
+def _near_miss_hit(candidate: str) -> tuple[str, list[AddressHit]]:
+    """把"看到疑似地址但没法确认"如实报出来。
+
+    OCR 很容易把 q/g、Q/O、0/O、l/1 认错。默默丢掉最危险——用户会以为工具
+    替他核对过图里的地址了，而实际上只用到了图中的网络名。
+    """
+    return (candidate, [AddressHit(
+        kind="ocr-unreliable", chains=(), confidence=0.0,
+        detail="校验没通过，无法确认它属于哪条链",
+        warning="图里的地址没能可靠读出来——OCR 常把 q/g、Q/O、0/O、l/1 认错。"
+                "本次判断只用到了网络名，并没有核对地址，请手动复制地址再比一次",
+    )])
+
+
+def _scan_shapes(text: str) -> list[tuple[str, list[AddressHit]]]:
+    """连拼接都认不出地址时，退一步找"形状像地址"的串并报警。"""
+    tokens = [t for t in re.findall(r"[0-9A-Za-z]+", text) if len(t) >= 3]
+    for start in range(len(tokens)):
+        for end in range(start + 1, min(start + 5, len(tokens) + 1)):
+            candidate = "".join(tokens[start:end])
+            if 25 <= len(candidate) <= 110 and _is_near_miss(candidate):
+                return [_near_miss_hit(candidate)]
+    return []
 
 
 def _scan_once(text: str) -> list[tuple[str, list[AddressHit]]]:

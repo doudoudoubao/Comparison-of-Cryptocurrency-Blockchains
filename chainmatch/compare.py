@@ -22,6 +22,13 @@ DIFFERENT = "different"
 POSSIBLY_SAME = "possibly_same"
 UNKNOWN = "unknown"
 
+# 命中这些字样的告警，说明判断本身不可靠或用户可能正在泄露敏感信息，
+# 必须出现在结论的风险区
+_CRITICAL_WARNING_KEYS = (
+    "校验", "篡改", "测试网", "私钥", "助记词", "模糊猜测",
+    "可靠读出", "拼起来", "交易哈希",
+)
+
 _VERDICT_TEXT = {
     SAME: "✅ 同一条链",
     DIFFERENT: "❌ 不是同一条链",
@@ -151,10 +158,12 @@ def _risks(result: Comparison) -> list[str]:
                 "下面的结论只是就其中一种可能而言，请先把输入缩小到你真正要用的那条链"
             )
 
-    # 地址校验、私钥、测试网、模糊猜测这几类问题优先级最高
+    # 这几类告警一定要顶到结论前面：它们说明"这次判断本身就不可靠"，
+    # 而不只是"两条链不一样"。其余告警（例如 EVM 地址天生无法定链）留在
+    # 识别结果里，避免把风险区冲淡。
     for side, res in (("A", a), ("B", b)):
         for warning in res.warnings:
-            if any(key in warning for key in ("校验", "篡改", "测试网", "私钥", "模糊猜测")):
+            if any(key in warning for key in _CRITICAL_WARNING_KEYS):
                 risks.append(f"输入 {side}：{warning}")
 
     if result.verdict == DIFFERENT:

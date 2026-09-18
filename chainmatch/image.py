@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 IMAGE_EXTS = frozenset({
     ".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff", ".webp", ".heic",
@@ -73,11 +74,18 @@ def capabilities() -> dict[str, bool]:
     }
 
 
+@lru_cache(maxsize=None)
 def _can_import(module: str) -> bool:
-    import importlib.util
+    """真的导入一次，而不是只看包在不在。
+
+    pyzbar 装了但缺 libzbar0 系统库时，包能找到、导入却会抛 ImportError。
+    只用 find_spec 检查会让 --check 报告"可用"，把用户引到错误的方向。
+    """
+    import importlib
     try:
-        return importlib.util.find_spec(module) is not None
-    except (ImportError, ValueError):
+        importlib.import_module(module)
+        return True
+    except Exception:
         return False
 
 
