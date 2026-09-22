@@ -118,7 +118,8 @@ def match_text(text: str) -> list[Signal]:
             detail = f"名称“{alias}”含义不唯一"
             confidence = min(confidence, 0.5)
         elif weak_word:
-            warning = f"“{alias}”既是链名也是普通英文词，这里更像是普通用词，仅作参考"
+            warning = (f"“{alias}”既是链名也是日常用词（如「以太网」「马蹄莲」），"
+                       f"这里更像普通用词——若确实指链，请人工核对")
             detail = f"文中出现了“{alias}”，可能指 {chains.label(ids[0])}"
         else:
             warning = ""
@@ -149,16 +150,26 @@ def match_text(text: str) -> list[Signal]:
     return signals
 
 
+def _has_cjk(text: str) -> bool:
+    return any("一" <= ch <= "鿿" for ch in text)
+
+
 def _fuzzy(normalized: str) -> list[Signal]:
-    """没有精确命中时的兜底：容忍 OCR 错字和拼写错误。"""
+    """没有精确命中时的兜底：容忍 OCR 错字和拼写错误。
+
+    中文单独放宽：链名多是 3 个字（以太坊、波场链），错一个字相似度就掉到
+    0.67，按英文的门槛会全部漏掉，而"以泰坊""波长"这类错字恰恰很常见。
+    汉字字符集大，两个无关的词几乎不会撞到 0.6，所以放宽是安全的。
+    """
     index = _index()
-    candidates = [a for a in index if len(a) >= 4]
     out: list[Signal] = []
     seen: set[str] = set()
     for token in [normalized] + normalized.split():
-        if len(token) < 4:
+        cjk = _has_cjk(token)
+        if len(token) < (2 if cjk else 4):
             continue
-        cutoff = 0.8 if len(token) >= 5 else 0.86
+        cutoff = 0.6 if cjk else (0.8 if len(token) >= 5 else 0.86)
+        candidates = [a for a in index if len(a) >= (2 if cjk else 4) and _has_cjk(a) == cjk]
         for alias in difflib.get_close_matches(token, candidates, n=2, cutoff=cutoff):
             if alias in seen:
                 continue

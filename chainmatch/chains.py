@@ -57,33 +57,34 @@ def _c(chain_id, en, zh, native, family, alias, **kw) -> Chain:
 CHAINS: tuple[Chain, ...] = (
     # ---- UTXO / 比特币系 ----
     _c("bitcoin", "Bitcoin", "比特币", "BTC", "utxo",
-       "btc|xbt|bitcoin|比特币|比特幣|比特币网络|比特币主网|bitcoin mainnet|btc network|"
+       "btc|xbt|bitcoin|比特币|比特幣|比特币网络|比特币主网|bitcoin mainnet|btc network|大饼|比特|"
        "omni|omni layer|usdt-omni|brc20|brc-20|runes|ordinals|taproot|segwit",
        standards=("Omni", "BRC-20", "Runes"),
        addr_kinds=("btc-base58", "btc-bech32"), bech32_hrp=("bc",),
        note="BRC-20 / Runes / Ordinals / Omni 都寄生在比特币主网，底层仍是 BTC 网络"),
     _c("litecoin", "Litecoin", "莱特币", "LTC", "utxo",
-       "ltc|litecoin|莱特币|萊特幣|litecoin network",
+       "ltc|litecoin|莱特币|萊特幣|litecoin network|莱特|萊特",
        addr_kinds=("ltc-base58", "ltc-bech32"), bech32_hrp=("ltc",)),
     _c("dogecoin", "Dogecoin", "狗狗币", "DOGE", "utxo",
-       "doge|dogecoin|狗狗币|狗狗幣|狗币|柴犬币主网",
+       "doge|dogecoin|狗狗币|狗狗幣|狗币|柴犬币主网|狗狗|狗狗链",
        addr_kinds=("doge",)),
     _c("bitcoin-cash", "Bitcoin Cash", "比特现金", "BCH", "utxo",
        "bch|bitcoin cash|bitcoincash|比特现金|比特現金|bch network",
        addr_kinds=("bch-cashaddr", "btc-base58")),
     _c("dash", "Dash", "达世币", "DASH", "utxo",
-       "dash|达世币|達世幣|dash network", addr_kinds=("dash",)),
+       "dash|达世币|達世幣|dash network|达世|達世", addr_kinds=("dash",)),
     _c("zcash", "Zcash", "大零币", "ZEC", "utxo",
-       "zec|zcash|大零币|大零幣|zcash network", addr_kinds=("zec-transparent",),
+       "zec|zcash|大零币|大零幣|zcash network|大零|零币", addr_kinds=("zec-transparent",),
        bech32_hrp=("zs",)),
     _c("monero", "Monero", "门罗币", "XMR", "other",
-       "xmr|monero|门罗币|門羅幣|monero network", addr_kinds=("xmr",)),
+       "xmr|monero|门罗币|門羅幣|monero network|门罗|門羅", addr_kinds=("xmr",)),
     _c("kaspa", "Kaspa", "卡斯帕", "KAS", "other",
        "kas|kaspa|卡斯帕", addr_kinds=("kaspa",)),
 
     # ---- 以太坊与 EVM 系 ----
     _c("ethereum", "Ethereum", "以太坊", "ETH", "evm",
-       "eth|ether|ethereum|以太坊|以太幣|以太坊主网|以太坊网络|erc20|erc-20|erc 20|erc721|erc-721|"
+       "eth|ether|ethereum|以太坊|以太幣|以太坊主网|以太坊网络|以太|太坊|姨太|以太币|以太坊币|"
+       "erc20|erc-20|erc 20|erc721|erc-721|"
        "erc1155|erc-1155|ethereum mainnet|eth mainnet|eth主网|以太坊主網|mainnet eth",
        standards=("ERC-20", "ERC-721", "ERC-1155"), evm_chain_id=1,
        addr_kinds=("evm",)),
@@ -97,7 +98,8 @@ CHAINS: tuple[Chain, ...] = (
        standards=("BEP-2",), addr_kinds=("bnb-beacon",), bech32_hrp=("bnb",),
        note="老的币安链（BEP2），地址以 bnb1 开头，已停止出块，切勿与 BSC 混淆"),
     _c("polygon", "Polygon PoS", "Polygon", "POL", "evm",
-       "matic|pol|polygon|polygon pos|matic network|polygon network|polygon主网|马蹄链|馬蹄鏈|polygonpos|polygon matic",
+       "matic|pol|polygon|polygon pos|matic network|polygon network|polygon主网|马蹄链|馬蹄鏈|"
+       "polygonpos|polygon matic|马蹄|馬蹄",
        standards=("ERC-20",), evm_chain_id=137, addr_kinds=("evm",),
        note="原生代币已由 MATIC 更名为 POL"),
     _c("polygon-zkevm", "Polygon zkEVM", "Polygon zkEVM", "ETH", "evm",
@@ -152,7 +154,7 @@ CHAINS: tuple[Chain, ...] = (
        "opbnb|op bnb|opbnb mainnet", evm_chain_id=204, addr_kinds=("evm",),
        note="opBNB 是 BSC 的 L2，与 BSC 主网不是同一条链"),
     _c("heco", "HECO Chain", "火币生态链", "HT", "evm",
-       "heco|hrc20|hrc-20|huobi eco|火币生态链|火幣生態鏈|heco chain",
+       "heco|hrc20|hrc-20|huobi eco|火币生态链|火幣生態鏈|heco chain|火币链|火幣鏈",
        standards=("HRC-20",), evm_chain_id=128, addr_kinds=("evm",)),
     _c("oktc", "OKT Chain", "OKT 链", "OKT", "evm",
        "okt|oktc|okc|okexchain|okex chain|okt chain|krc20|krc-20|欧易链|欧科链",
@@ -212,16 +214,16 @@ CHAINS: tuple[Chain, ...] = (
        "near|near protocol|nep141|nep-141", standards=("NEP-141",),
        addr_kinds=("near", "hex64")),
     _c("cardano", "Cardano", "卡尔达诺", "ADA", "other",
-       "ada|cardano|卡尔达诺|艾达币|cardano network", addr_kinds=("ada",), bech32_hrp=("addr",)),
+       "ada|cardano|卡尔达诺|艾达币|cardano network|艾达|艾達", addr_kinds=("ada",), bech32_hrp=("addr",)),
     _c("polkadot", "Polkadot", "波卡", "DOT", "substrate",
        "dot|polkadot|波卡|波卡链|polkadot network", addr_kinds=("ss58",)),
     _c("kusama", "Kusama", "Kusama", "KSM", "substrate",
        "ksm|kusama", addr_kinds=("ss58",)),
     _c("ripple", "XRP Ledger", "瑞波", "XRP", "other",
-       "xrp|ripple|瑞波|瑞波币|xrpl|xrp ledger|xrp主网", addr_kinds=("xrp",),
+       "xrp|ripple|瑞波|瑞波币|xrpl|xrp ledger|xrp主网|瑞波链|瑞波網絡", addr_kinds=("xrp",),
        note="转入交易所通常必须填写 Tag / Memo，否则无法入账"),
     _c("stellar", "Stellar", "恒星币", "XLM", "other",
-       "xlm|stellar|恒星币|恒星幣|stellar network", addr_kinds=("xlm",),
+       "xlm|stellar|恒星币|恒星幣|stellar network|恒星|恒星链", addr_kinds=("xlm",),
        note="转入交易所通常必须填写 Memo"),
     _c("algorand", "Algorand", "Algorand", "ALGO", "other",
        "algo|algorand|asa", standards=("ASA",), addr_kinds=("algo",)),
@@ -230,10 +232,12 @@ CHAINS: tuple[Chain, ...] = (
     _c("filecoin", "Filecoin", "Filecoin", "FIL", "other",
        "fil|filecoin|文件币", addr_kinds=("filecoin",)),
     _c("tezos", "Tezos", "Tezos", "XTZ", "other",
-       "xtz|tezos|fa12|fa-1.2|fa2", standards=("FA1.2", "FA2"), addr_kinds=("tezos",)),
+       "xtz|tezos|fa12|fa-1.2|fa2|特佐斯", standards=("FA1.2", "FA2"), addr_kinds=("tezos",)),
     _c("eos", "EOS", "EOS", "EOS", "other",
-       "eos|eos network|柚子币", addr_kinds=("eos-name",),
+       "eos|eos network|柚子币|柚子|柚子链", addr_kinds=("eos-name",),
        note="账户名形式的地址，转账通常需要 Memo"),
+    _c("qtum", "Qtum", "量子链", "QTUM", "other",
+       "qtum|量子链|量子鏈|qrc20|qrc-20", standards=("QRC-20",), addr_kinds=("qtum",)),
     _c("waves", "Waves", "Waves", "WAVES", "other",
        "waves|waves network", addr_kinds=("waves",)),
     _c("neo", "Neo", "小蚁", "NEO", "other",
@@ -251,7 +255,7 @@ CHAINS: tuple[Chain, ...] = (
 
     # ---- Cosmos 生态 ----
     _c("cosmos", "Cosmos Hub", "Cosmos", "ATOM", "cosmos",
-       "atom|cosmos|cosmos hub|宇宙链|ibc", addr_kinds=("bech32-cosmos",),
+       "atom|cosmos|cosmos hub|宇宙链|ibc|阿童木", addr_kinds=("bech32-cosmos",),
        bech32_hrp=("cosmos",)),
     _c("osmosis", "Osmosis", "Osmosis", "OSMO", "cosmos",
        "osmo|osmosis", addr_kinds=("bech32-cosmos",), bech32_hrp=("osmo",)),
@@ -299,6 +303,9 @@ COMMON_WORD_ALIASES: frozenset[str] = frozenset({
     "base", "core", "flow", "scroll", "blast", "dash", "waves", "wave", "one", "op",
     "near", "ton", "sonic", "mantle", "terra", "aurora", "manta", "neo", "sui", "sei",
     "metis", "kava", "celo", "linea", "arb", "s", "rune", "iron", "sky",
+    # 中文俗称里同样有日常含义的："以太网"不是以太坊，"柚子"多半是水果
+    "以太", "比特", "马蹄", "馬蹄", "恒星", "门罗", "門羅", "柚子", "莱特", "萊特",
+    "艾达", "艾達", "姨太", "大饼", "阿童木", "狗狗", "大零", "达世", "達世", "零币",
 })
 
 # 出现这些词说明上下文确实在讲转账网络，此时常用词别名不必降权

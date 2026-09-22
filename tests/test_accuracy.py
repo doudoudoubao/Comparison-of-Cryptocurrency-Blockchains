@@ -87,6 +87,68 @@ class TestCommonWordAliases(unittest.TestCase):
             self.assertEqual(identify(text).top, expected, text)
 
 
+class TestChineseColloquialNames(unittest.TestCase):
+    """中文用户真实会说的俗称——"大饼""姨太""马蹄"这些。"""
+
+    SLANG = {
+        "大饼": "bitcoin", "比特": "bitcoin", "姨太": "ethereum", "以太": "ethereum",
+        "太坊": "ethereum", "莱特": "litecoin", "狗狗": "dogecoin", "恒星": "stellar",
+        "艾达": "cardano", "马蹄": "polygon", "马蹄链": "polygon", "火币链": "heco",
+        "门罗": "monero", "大零": "zcash", "达世": "dash", "柚子": "eos",
+        "阿童木": "cosmos", "量子链": "qtum", "波场链": "tron", "瑞波链": "ripple",
+        "特佐斯": "tezos", "以太坊经典": "ethereum-classic",
+    }
+
+    # 这些俗称在日常中文里另有含义，不能因为收了别名就到处误判
+    DAILY_CHINESE = (
+        "以太网连接失败请检查网线",
+        "我买了柚子和苹果准备做沙拉",
+        "马蹄莲开花了很好看",
+        "今晚的恒星很亮适合观星",
+        "门罗主义是一种外交政策",
+        "比特率设置为 320kbps",
+        "莱特兄弟发明了飞机",
+        "大饼卷一切真好吃",
+        "阿童木是我小时候看的动画",
+    )
+
+    def test_slang_resolves(self):
+        wrong = {t: (e, identify(t).top) for t, e in self.SLANG.items()
+                 if identify(t).top != e}
+        self.assertEqual(wrong, {}, f"这些中文俗称没认出来：{wrong}")
+
+    def test_daily_chinese_is_not_mistaken_for_a_chain(self):
+        confident = [t for t in self.DAILY_CHINESE if identify(t).certain]
+        self.assertEqual(confident, [], f"日常中文被当成了链名：{confident}")
+
+    def test_chain_context_restores_confidence(self):
+        for text, expected in [
+            ("网络 以太", "ethereum"), ("马蹄链网络", "polygon"), ("柚子链地址", "eos"),
+            ("提币网络 门罗", "monero"), ("转账到恒星网络", "stellar"),
+        ]:
+            self.assertEqual(identify(text).top, expected, text)
+
+
+class TestChineseTypos(unittest.TestCase):
+    """中文链名多是 3 个字，错一个字很常见。"""
+
+    def test_typos_are_caught_but_never_confident(self):
+        for text, expected in [
+            ("以泰坊", "ethereum"), ("以太访", "ethereum"), ("波长链", "tron"),
+            ("币安智能连", "bsc"), ("比特弊", "bitcoin"), ("波卡连", "polkadot"),
+        ]:
+            result = identify(text)
+            self.assertEqual(result.top, expected, text)
+            # 猜出来了也绝不能算"确定"——置信度要低到过不了 certain 这道线
+            self.assertFalse(result.certain, text)
+            self.assertLess(result.confidence, 0.7, text)
+
+    def test_unrelated_chinese_is_not_fuzzy_matched(self):
+        for text in ("今天天气不错", "我要去银行办事", "帮我买杯咖啡",
+                     "会议室在三楼", "项目进度正常"):
+            self.assertFalse(identify(text).resolved, text)
+
+
 class TestConflictingEvidence(unittest.TestCase):
     """一个输入里出现多条链时，不能靠分数差 0.01 替用户选一条。"""
 

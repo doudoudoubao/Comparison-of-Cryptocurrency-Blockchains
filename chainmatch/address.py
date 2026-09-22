@@ -355,6 +355,18 @@ def _rule_kaspa(text: str) -> AddressHit | None:
                       detail="Kaspa 地址")
 
 
+def _rule_qtum(text: str) -> AddressHit | None:
+    # 只认 Q 开头的 P2PKH（版本 0x3A）。Qtum 的 P2SH 版本 0x32 与莱特币相同，
+    # 光看地址分不出来，交给名称去区分。
+    if not re.fullmatch(rf"Q{_B58_BODY}{{33}}", text):
+        return None
+    payload = b58check_decode(text)
+    if payload is None or payload[0] != 0x3A:
+        return None
+    return AddressHit(kind="qtum", chains=("qtum",), confidence=0.94,
+                      detail="Qtum 地址（校验通过）")
+
+
 def _rule_neo(text: str) -> AddressHit | None:
     if not re.fullmatch(rf"[AN]{_B58_BODY}{{33}}", text):
         return None
@@ -418,6 +430,7 @@ _RULES = (
     _rule_tezos,
     _rule_monero,
     _rule_kaspa,
+    _rule_qtum,
     _rule_neo,
     _rule_stacks,
     _rule_waves,

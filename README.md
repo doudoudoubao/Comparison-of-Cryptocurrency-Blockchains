@@ -111,7 +111,7 @@ $ python3 chaincmp.py -i 0xdAC17F958D2ee523a2206206994597C13D831ec7
 ### 5. 其他命令
 
 ```bash
-python3 chaincmp.py --list           # 列出支持的 79 条链和它们的所有写法
+python3 chaincmp.py --list           # 列出支持的 80 条链和它们的所有写法
 python3 chaincmp.py --list tron      # 按关键字过滤
 python3 chaincmp.py --check          # 看图片识别能力是否就绪
 python3 chaincmp.py --json A B       # JSON 输出，便于脚本调用
@@ -162,7 +162,7 @@ $ python3 chaincmp.py "以太坊" "波场"
 
 ## 它能识别什么
 
-**79 条链**，每条都收录了中文名、英文名、代币标准和交易所里的写法：
+**80 条链、427 种写法**，每条都收录了中文名、英文名、代币标准和交易所里的写法：
 
 | 类别 | 链 |
 |---|---|
@@ -177,6 +177,8 @@ $ python3 chaincmp.py "以太坊" "波场"
 
 - **代币标准**：ERC20 / ERC-20 / ＥＲＣ２０、TRC20、BEP20、BEP2、SPL、Jetton、HRC20…
 - **链名**：`以太坊` `以太坊经典` `波场` `币安智能链` `Arbitrum One` `AVAXC` `马蹄链`…
+- **中文俗称**：`大饼` `姨太` `以太` `马蹄` `柚子` `门罗` `莱特` `艾达` `阿童木` `量子链`…
+- **写错的名字**：`Etherium`、`以泰坊`、`波长链`、`币安智能连`——会猜出来，但标明是猜的
 - **地址**：`0x…`、`T…`、`bc1…`、`cosmos1…`、`addr1…`、`r…`、`G…`、`EQ…` 等 28 种形态
 - **支付 URI**：`ethereum:0x…@56`（EIP-681）、`eip155:137:0x…`（CAIP-10）、`bitcoin:bc1…?amount=`、`tron:T…`
 - **整句话**：`请用 TRC20 网络给我转 100 USDT`、交易所提币页的整屏 OCR 文本

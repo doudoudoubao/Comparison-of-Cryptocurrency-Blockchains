@@ -129,11 +129,28 @@ def _possibly_headline(a: Resolution, b: Resolution, shared: tuple[str, ...]) ->
 
 
 def _possibly_reason(a: Resolution, b: Resolution, shared: tuple[str, ...]) -> str:
-    if a.certain and not b.certain:
-        return f"A 已确定是 {chains.label(a.top)}，但 B 的信息只够缩到 {len(b.candidates)} 条候选"
-    if b.certain and not a.certain:
-        return f"B 已确定是 {chains.label(b.top)}，但 A 的信息只够缩到 {len(a.candidates)} 条候选"
-    return "两边给出的信息都不足以锁定唯一一条链"
+    sides = (("A", a), ("B", b))
+    weak = [(tag, res) for tag, res in sides if not res.certain]
+    if len(weak) == 1:
+        weak_tag, weak_res = weak[0]
+        firm_tag, firm_res = next((t, r) for t, r in sides if r.certain)
+        same = weak_res.top == firm_res.top
+        return (f"{firm_tag} 已确定是 {chains.label(firm_res.top)}；"
+                f"{weak_tag} {_why_not_certain(weak_res, points_at_same=same)}")
+    return "两边都不足以锁定唯一一条链：" + "；".join(
+        f"{tag} {_why_not_certain(res)}" for tag, res in weak)
+
+
+def _why_not_certain(res: Resolution, points_at_same: bool = False) -> str:
+    """说清楚这一边到底差在哪——候选太多，还是证据太弱。"""
+    if res.conflicts:
+        return "里同时出现了多条链的信息"
+    if len(res.candidates) > 1:
+        tail = "（其中包含这条链）" if points_at_same else ""
+        return f"的信息只够缩到 {len(res.candidates)} 条候选{tail}"
+    if points_at_same:
+        return f"也指向它，但证据不够有力（{res.confidence:.0%}）"
+    return f"看起来是 {chains.label(res.top)}，但证据不够有力（{res.confidence:.0%}）"
 
 
 # --------------------------------------------------------------------------

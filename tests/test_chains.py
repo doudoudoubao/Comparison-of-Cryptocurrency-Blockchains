@@ -43,7 +43,7 @@ class TestRegistryIntegrity(unittest.TestCase):
             "btc-base58", "btc-bech32", "ltc-base58", "ltc-bech32", "doge", "dash",
             "zec-transparent", "bch-cashaddr", "xrp", "xlm", "algo", "hedera",
             "filecoin", "tezos", "eos-name", "kaspa", "xmr", "neo", "stacks",
-            "waves", "flow", "multiversx", "bnb-beacon", "bech32-cosmos",
+            "waves", "flow", "multiversx", "bnb-beacon", "bech32-cosmos", "qtum",
         }
         for chain in chains.CHAINS:
             for kind in chain.addr_kinds:
